@@ -44,32 +44,31 @@
     <!-- Layout Grid -->
     <div id="displayGrid" class="display-grid"></div>
     
-    <!-- Normal JS Files -->
+    <!-- JS di base -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/player.js') }}"></script>
 
-    <!-- 1) Socket.IO client -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
-
-    <!-- 2) Initialization -->
+    <!-- Dati dal backend, senza usare 'const displayConfig' -->
     <script>
-        // Provided by Flask template
-        const displayConfig = {{ display_data|tojson }};
-        const currentDisplayId = displayConfig.id;
+        // Espongo i dati in una variabile globale per evitare conflitti di nome
+        window.DISPLAY_DATA = {{ display_data|tojson }};
+        window.CURRENT_DISPLAY_ID = window.DISPLAY_DATA.id;
 
         window.addEventListener('DOMContentLoaded', function() {
             initializePlayer({
-                id: displayConfig.id,
-                name: displayConfig.name,
-                layout: displayConfig.layout_config,
-                background: displayConfig.background_config
+                id: window.DISPLAY_DATA.id,
+                name: window.DISPLAY_DATA.name,
+                layout: window.DISPLAY_DATA.layout_config,
+                background: window.DISPLAY_DATA.background_config
             });
         });
     </script>
 
-    <!-- 3) REALTIME SOCKET LISTENER -->
+    <!-- Socket.IO client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+
+    <!-- Listener realtime -->
     <script>
-        // Connect to Socket.IO server (same domain)
         const socket = io({
             transports: ["websocket"],
             reconnection: true,
@@ -80,18 +79,17 @@
             console.log("Socket connected:", socket.id);
         });
 
-        // When backend emits "display_updated", reload if this display is affected
         socket.on("display_updated", (data) => {
             console.log("Realtime update received:", data);
 
-            // If server sends display_id: reload only the affected one
-            if (data.display_id === currentDisplayId) {
-                console.log("Reloading display", currentDisplayId);
-                location.reload();
-            }
-
-            // If broadcast only (fallback)
-            if (!data.display_id) {
+            // Se il backend manda display_id, ricarica solo quello giusto
+            if (data && data.display_id) {
+                if (data.display_id === window.CURRENT_DISPLAY_ID) {
+                    console.log("Reloading display", window.CURRENT_DISPLAY_ID);
+                    location.reload();
+                }
+            } else {
+                // Fallback: ricarica sempre
                 console.log("Reloading (global update)");
                 location.reload();
             }

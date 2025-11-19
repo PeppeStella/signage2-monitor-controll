@@ -277,7 +277,7 @@ def api_display(display_id):
         conn.close()
 
         # Notifica tutti i player che questo display è cambiato
-        socketio.emit('display_updated', {'display_id': display_id}, broadcast=True)
+        socketio.emit('display_updated', {'display_id': display_id})
         
         return jsonify({'success': True})
     
@@ -366,7 +366,7 @@ def api_create_display():
     conn.close()
 
     # Notifica i player in caso tu voglia aprire subito il nuovo display da qualche parte
-    socketio.emit('display_updated', {'display_id': display_id, 'created': True}, broadcast=True)
+    socketio.emit('display_updated', {'display_id': display_id, 'created': True})
     
     return jsonify({'success': True, 'display_id': display_id})
 

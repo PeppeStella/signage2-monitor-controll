@@ -12,12 +12,16 @@ import secrets
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory
+from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 import feedparser
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(16))
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file upload
+
+# SocketIO realtime
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Configuration
 UPLOAD_FOLDER = 'static/uploads'
@@ -235,7 +239,7 @@ def player(display_id):
     
     return render_template('player.html', display=display, display_data=display_data)
 
-@app.route('/api/display/<int:display_id>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/api/display/<int:display_id>, methods=['GET', 'PUT', 'DELETE'])
 @require_auth
 def api_display(display_id):
     """API endpoint for display data."""
@@ -271,6 +275,9 @@ def api_display(display_id):
         
         conn.commit()
         conn.close()
+
+        # Notifica tutti i player che questo display è cambiato
+        socketio.emit('display_updated', {'display_id': display_id}, broadcast=True)
         
         return jsonify({'success': True})
     
@@ -287,6 +294,9 @@ def api_display(display_id):
         cursor.execute('DELETE FROM displays WHERE id = ?', (display_id,))
         conn.commit()
         conn.close()
+        
+        # Notifica anche la cancellazione (se vuoi gestirla lato client)
+        socketio.emit('display_updated', {'display_id': display_id, 'deleted': True}, broadcast=True)
         
         return jsonify({'success': True, 'message': 'Display deleted successfully'})
 
@@ -354,6 +364,9 @@ def api_create_display():
     display_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
+    # Notifica i player in caso tu voglia aprire subito il nuovo display da qualche parte
+    socketio.emit('display_updated', {'display_id': display_id, 'created': True}, broadcast=True)
     
     return jsonify({'success': True, 'display_id': display_id})
 
@@ -457,4 +470,4 @@ if __name__ == '__main__':
     init_database()
     print("Digital Signage Server Starting...")
     print("Access at: http://localhost:5000")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000)

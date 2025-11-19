@@ -6,7 +6,6 @@
     <title>{{ display[1] }} - Digital Signage Player</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/player.css') }}">
     <style>
-        /* Fallback styles for debugging */
         body { 
             margin: 0; 
             padding: 0; 
@@ -28,7 +27,6 @@
             left: 0; 
             right: 0; 
             bottom: 0; 
-            background: transparent; 
             display: grid; 
             gap: 2px; 
             padding: 2px; 
@@ -36,42 +34,69 @@
     </style>
 </head>
 <body>
-    <!-- Top Bar with Date/Time -->
+
+    <!-- Top Bar (clock/date) -->
     <div id="topBar" class="top-bar">
         <div id="currentTime" class="time-display"></div>
         <div id="currentDate" class="date-display"></div>
     </div>
     
-    <!-- Main Display Grid -->
-    <div id="displayGrid" class="display-grid">
-        <!-- Zones will be generated here by JavaScript -->
-    </div>
+    <!-- Layout Grid -->
+    <div id="displayGrid" class="display-grid"></div>
     
+    <!-- Normal JS Files -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+
+    <!-- 1) Socket.IO client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+
+    <!-- 2) Initialization -->
     <script>
-        try {
-            // Initialize player with display configuration
-            const displayConfig = {{ display_data|tojson }};
-            
-            console.log('Display config from template:', displayConfig);
-            
-            // Adapt the config format for the player
-            const playerConfig = {
+        // Provided by Flask template
+        const displayConfig = {{ display_data|tojson }};
+        const currentDisplayId = displayConfig.id;
+
+        window.addEventListener('DOMContentLoaded', function() {
+            initializePlayer({
                 id: displayConfig.id,
                 name: displayConfig.name,
                 layout: displayConfig.layout_config,
                 background: displayConfig.background_config
-            };
-            
-            window.addEventListener('DOMContentLoaded', function() {
-                initializePlayer(playerConfig);
             });
-        } catch (error) {
-            console.error('Error initializing player:', error);
-            document.getElementById('displayGrid').innerHTML = 
-                '<div style="color: red; padding: 20px;">JavaScript Error: ' + error.message + '</div>';
-        }
+        });
     </script>
+
+    <!-- 3) REALTIME SOCKET LISTENER -->
+    <script>
+        // Connect to Socket.IO server (same domain)
+        const socket = io({
+            transports: ["websocket"],
+            reconnection: true,
+            reconnectionAttempts: Infinity
+        });
+
+        socket.on("connect", () => {
+            console.log("Socket connected:", socket.id);
+        });
+
+        // When backend emits "display_updated", reload if this display is affected
+        socket.on("display_updated", (data) => {
+            console.log("Realtime update received:", data);
+
+            // If server sends display_id: reload only the affected one
+            if (data.display_id === currentDisplayId) {
+                console.log("Reloading display", currentDisplayId);
+                location.reload();
+            }
+
+            // If broadcast only (fallback)
+            if (!data.display_id) {
+                console.log("Reloading (global update)");
+                location.reload();
+            }
+        });
+    </script>
+
 </body>
 </html>

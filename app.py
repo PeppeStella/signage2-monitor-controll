@@ -239,7 +239,7 @@ def player(display_id):
     
     return render_template('player.html', display=display, display_data=display_data)
 
-@app.route('/api/display/<int:display_id>, methods=['GET', 'PUT', 'DELETE'])
+@app.route('/api/display/<int:display_id>', methods=['GET', 'PUT', 'DELETE'])
 @require_auth
 def api_display(display_id):
     """API endpoint for display data."""
